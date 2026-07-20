@@ -1,7 +1,8 @@
 -- Hipo — net flow (GRAM in vs GRAM out)
 -- Tags: hipo, liquid-staking, ton, hgram
 -- Metric: deposits are near-exact (message value); withdrawals are hGRAM burned valued at the
---   EXACT daily rate (treasury-rate dataset). Net flow reflects principal in/out; it excludes
+--   EXACT daily rate (treasury-rate dataset; days before its first snapshot use its earliest
+--   rate). Net flow reflects principal in/out; it excludes
 --   reward accrual (which lifts total_coins/rate — see tvl.sql).
 -- Caveat: the withdrawal leg uses jetton_events burns, which may under-capture Hipo's custom
 --   burns (see unstake_volume.sql), so net flow is an upper bound (withdrawals understated).
@@ -44,7 +45,12 @@ joined AS (
         x.d,
         COALESCE(dep.gram_in, 0) AS gram_in,
         COALESCE(bn.hgram_burned, 0) AS hgram_burned,
-        LAST_VALUE(rt.rate) IGNORE NULLS OVER (ORDER BY x.d ROWS UNBOUNDED PRECEDING) AS rate
+        -- Forward-fill the last known rate; backfill days before the dataset's first
+        -- snapshot with the earliest known rate (approximate until the CSV is backfilled).
+        COALESCE(
+            LAST_VALUE(rt.rate)  IGNORE NULLS OVER (ORDER BY x.d ROWS UNBOUNDED PRECEDING),
+            FIRST_VALUE(rt.rate) IGNORE NULLS OVER (ORDER BY x.d ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+        ) AS rate
     FROM days x
     LEFT JOIN deposits dep ON x.d = dep.d
     LEFT JOIN burns    bn  ON x.d = bn.d
