@@ -2,6 +2,8 @@
 -- Tags: hipo, liquid-staking, ton, hgram
 -- Metric: hGRAM burned per day (from jetton_events burns) valued in GRAM at the EXACT daily
 --   rate (from the treasury-rate dataset). The GRAM column is a valuation of the burns.
+--   Days before the dataset's first snapshot use its earliest rate (approximate) until the
+--   CSV is backfilled from historical reward logs.
 -- Caveat: like mints, Hipo's burns are custom (non-TEP-74), so ton.jetton_events may
 --   under-capture some burns — treat this as a lower bound on unstake volume. (A fully exact
 --   unstake series would need decoding the treasury's withdrawal messages — future work.)
@@ -26,10 +28,16 @@ rate AS (
     GROUP BY 1
 ),
 filled AS (
+    -- Forward-fill the last known rate; for days before the dataset's first snapshot
+    -- (it builds forward from its first run), backfill with the earliest known rate —
+    -- an approximation until the CSV is backfilled from historical reward logs.
     SELECT
         b.block_date,
         b.hgram_burned,
-        LAST_VALUE(r.rate) IGNORE NULLS OVER (ORDER BY b.block_date ROWS UNBOUNDED PRECEDING) AS rate
+        COALESCE(
+            LAST_VALUE(r.rate)  IGNORE NULLS OVER (ORDER BY b.block_date ROWS UNBOUNDED PRECEDING),
+            FIRST_VALUE(r.rate) IGNORE NULLS OVER (ORDER BY b.block_date ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+        ) AS rate
     FROM burns b
     LEFT JOIN rate r ON b.block_date = r.d
 )
