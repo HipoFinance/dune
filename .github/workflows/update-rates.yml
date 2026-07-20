@@ -1,0 +1,44 @@
+name: Update Hipo rate dataset
+
+# Daily snapshot of the treasury exchange rate / APY / TVL into the Dune dataset.
+# Requires repo secret DUNE_API_KEY (optionally TONCENTER_API_KEY, TON_ENDPOINT).
+
+on:
+  schedule:
+    # Every 6 hours. Rounds are ~18h, so this samples each round ~3x → no round is ever missed.
+    # The exporter keys rows by round_since, so intra-round re-runs just refresh that round's row.
+    - cron: '17 */6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        working-directory: exporter
+        run: npm install
+
+      - name: Snapshot rate and upload to Dune
+        working-directory: exporter
+        env:
+          DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+          TONCENTER_API_KEY: ${{ secrets.TONCENTER_API_KEY }}
+          TON_ENDPOINT: ${{ secrets.TON_ENDPOINT }}
+        run: node export-rates.mjs
+
+      - name: Commit updated CSV
+        run: |
+          git config user.name "hipo-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/treasury_rate.csv
+          git diff --staged --quiet || git commit -m "chore: update treasury rate dataset"
+          git push
