@@ -27,7 +27,13 @@ burns AS (
     GROUP BY 1
 ),
 rate AS (
-    SELECT CAST(ts AS date) AS d, rate FROM dune.hipofinance.dataset_treasury_rate
+    -- ts is an ISO-8601 varchar in the uploaded dataset; parse before casting.
+    -- One row per round (~18h), so pick the latest rate when two rounds share a date.
+    SELECT
+        CAST(from_iso8601_timestamp(ts) AS date) AS d,
+        MAX_BY(rate, ts) AS rate
+    FROM dune.hipofinance.dataset_treasury_rate
+    GROUP BY 1
 ),
 days AS (
     SELECT d FROM deposits

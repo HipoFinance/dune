@@ -7,7 +7,7 @@
 -- For a USD line, multiply total_coins by the GRAM price from ton.prices_daily (optional).
 
 SELECT
-    ts AS day,
+    from_iso8601_timestamp(ts) AS day,  -- ts is an ISO-8601 varchar in the uploaded dataset
     total_coins  AS tvl_gram,      -- authoritative TVL
     total_tokens AS hgram_tokens,  -- protocol token total (≈ circulating supply)
     rate

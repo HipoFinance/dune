@@ -52,6 +52,9 @@ For each file in [`queries/`](queries/), in this order
    - `ton.balances_history` / `ton.latest_balances` (supply, holders, distribution): `address`
      (holder), `asset` (jetton master, or `'TON'` for the coin), `amount` (absolute balance),
      `block_date`, `lt`.
+   - `dune.hipofinance.dataset_treasury_rate`: the `ts` column is an ISO-8601 **varchar**
+     (`2026-07-20T13:54:40.365Z`) — always parse with `from_iso8601_timestamp(ts)`; a plain
+     `CAST(ts AS date)` fails.
    - The weekly `sequence(DATE '2024-01-01', …)` spine in `holders.sql`: set the start near
      hGRAM's first on-chain activity to trim empty rows.
 4. **Run** and sanity-check against the validation steps below.
