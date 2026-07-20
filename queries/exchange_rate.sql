@@ -6,7 +6,7 @@
 -- Source: dune.hipofinance.dataset_treasury_rate
 
 SELECT
-    ts AS day,
+    from_iso8601_timestamp(ts) AS day,  -- ts is an ISO-8601 varchar in the uploaded dataset
     rate,           -- = total_coins / total_tokens (matches the Hipo app)
     current_rate,
     previous_rate

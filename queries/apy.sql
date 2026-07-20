@@ -6,7 +6,7 @@
 -- Source: dune.hipofinance.dataset_treasury_rate
 
 SELECT
-    ts AS day,
+    from_iso8601_timestamp(ts) AS day,  -- ts is an ISO-8601 varchar in the uploaded dataset
     apy             -- fraction; format as a percentage in the visualization
 FROM dune.hipofinance.dataset_treasury_rate
 WHERE apy IS NOT NULL
