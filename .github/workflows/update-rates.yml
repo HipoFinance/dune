@@ -25,7 +25,7 @@ jobs:
 
       - name: Install deps
         working-directory: exporter
-        run: npm install
+        run: npm ci --ignore-scripts
 
       - name: Snapshot rate and upload to Dune
         working-directory: exporter
