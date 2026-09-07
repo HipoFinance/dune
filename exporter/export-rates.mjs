@@ -39,32 +39,43 @@ async function main() {
     const client = new TonClient({ endpoint: ENDPOINT, apiKey: TONCENTER_API_KEY })
     const addr = Address.parse(TREASURY)
 
-    // get_treasury_state — read in the order defined by wrappers/Treasury.ts (indices 0..12)
+    // get_treasury_state — a flat tuple read positionally, in the order defined by the contract
+    // repo's wrappers/Treasury.ts. It only ever grows by APPENDING, so trailing fields this script
+    // does not name are safe to ignore; what is not safe is assuming an index. Two releases moved
+    // these: deficit was inserted at 5 (pushing parent to 6, and everything after it up by one),
+    // and window_duration + last_settled_round were added at 14 and 15. This script read the old
+    // positions, and every scheduled run since that release has failed as a result.
     const ts = (await client.runMethod(addr, 'get_treasury_state')).stack
     const totalCoins = ts.readBigNumber() // 0
     const totalTokens = ts.readBigNumber() // 1
     ts.readBigNumber() // 2 total_staking
     ts.readBigNumber() // 3 total_unstaking
     ts.readBigNumber() // 4 total_borrowers_stake
-    ts.readAddressOpt() // 5 parent
-    ts.readCellOpt() // 6 participations
-    ts.readBigNumber() // 7 rounds_imbalance
-    ts.readBoolean() // 8 stopped
-    ts.readBoolean() // 9 instant_mint
-    ts.readCell() // 10 loan_codes
-    const previousRate = ts.readBigNumber() // 11
-    const currentRate = ts.readBigNumber() // 12
+    ts.readBigNumber() // 5 deficit
+    ts.readAddressOpt() // 6 parent
+    ts.readCellOpt() // 7 participations
+    ts.readBigNumber() // 8 rounds_imbalance
+    ts.readBoolean() // 9 stopped
+    ts.readBoolean() // 10 instant_mint
+    ts.readCell() // 11 loan_codes
+    const previousRate = ts.readBigNumber() // 12
+    const currentRate = ts.readBigNumber() // 13
+    const windowDuration = ts.readBigNumber() // 14
 
-    // get_times — for the round length that sets the compounding frequency (indices 0 and 3)
+    // get_times — only for the round the snapshot is keyed by (index 0).
     const tm = (await client.runMethod(addr, 'get_times')).stack
     const currentRoundSince = tm.readBigNumber() // 0
-    tm.readBigNumber() // 1 participate_since
-    tm.readBigNumber() // 2 participate_until
-    const nextRoundSince = tm.readBigNumber() // 3
 
     // Rate and APY, computed exactly like scripts/showState.ts.
+    //
+    // The exponent's basis is window_duration, the interval the rate pair ACTUALLY grew over, and
+    // not a round length. Those were the same number until the treasury widened its published
+    // window to span two barrier releases; it is now about two rounds, and wider still across
+    // rounds where nothing was lent. Dividing by one round length instead would roughly SQUARE the
+    // reported APY -- ~17% would print as ~37% -- which is the kind of error a chart makes look
+    // like good news. Rows already in the CSV were written when the two agreed, so they stand.
     const rate = Number(totalCoins) / Number(totalTokens)
-    const duration = Number(nextRoundSince - currentRoundSince)
+    const duration = Number(windowDuration)
     const compoundingFrequency = duration > 0 ? YEAR / duration : 0
     const growth = Number(currentRate) / Number(previousRate)
     const apy = previousRate > 0n && duration > 0 ? Math.pow(growth, compoundingFrequency) - 1 : ''
