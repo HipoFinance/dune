@@ -10,6 +10,7 @@
   "dependencies": {
     "@ton/core": "^0.63.1",
     "@ton/crypto": "^3.3.0",
-    "@ton/ton": "^16.2.4"
+    "@ton/ton": "^16.2.4",
+    "@hipo-finance/sdk": "^6.1.0"
   }
 }

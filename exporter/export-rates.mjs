@@ -20,6 +20,7 @@
 
 import { TonClient } from '@ton/ton'
 import { Address } from '@ton/core'
+import { Treasury, computeApy } from '@hipo-finance/sdk'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,53 +33,35 @@ const DUNE_TABLE_NAME = process.env.DUNE_TABLE_NAME || 'treasury_rate'
 const CSV_PATH =
     process.env.CSV_PATH || fileURLToPath(new URL('../data/treasury_rate.csv', import.meta.url))
 
-const YEAR = 365 * 24 * 60 * 60
 const HEADER = 'ts,round_since,total_coins,total_tokens,rate,current_rate,previous_rate,apy'
 
 async function main() {
     const client = new TonClient({ endpoint: ENDPOINT, apiKey: TONCENTER_API_KEY })
     const addr = Address.parse(TREASURY)
 
-    // get_treasury_state — a flat tuple read positionally, in the order defined by the contract
-    // repo's wrappers/Treasury.ts. It only ever grows by APPENDING, so trailing fields this script
-    // does not name are safe to ignore; what is not safe is assuming an index. Two releases moved
-    // these: deficit was inserted at 5 (pushing parent to 6, and everything after it up by one),
-    // and window_duration + last_settled_round were added at 14 and 15. This script read the old
-    // positions, and every scheduled run since that release has failed as a result.
-    const ts = (await client.runMethod(addr, 'get_treasury_state')).stack
-    const totalCoins = ts.readBigNumber() // 0
-    const totalTokens = ts.readBigNumber() // 1
-    ts.readBigNumber() // 2 total_staking
-    ts.readBigNumber() // 3 total_unstaking
-    ts.readBigNumber() // 4 total_borrowers_stake
-    ts.readBigNumber() // 5 deficit
-    ts.readAddressOpt() // 6 parent
-    ts.readCellOpt() // 7 participations
-    ts.readBigNumber() // 8 rounds_imbalance
-    ts.readBoolean() // 9 stopped
-    ts.readBoolean() // 10 instant_mint
-    ts.readCell() // 11 loan_codes
-    const previousRate = ts.readBigNumber() // 12
-    const currentRate = ts.readBigNumber() // 13
-    const windowDuration = ts.readBigNumber() // 14
+    // Read through @hipo-finance/sdk rather than by tuple index. This script broke on 2026-09-06
+    // precisely because it indexed the tuple by hand: the treasury inserted a `deficit` field,
+    // every position after it shifted by one, and each scheduled run failed silently until someone
+    // looked. The SDK tracks that shape as the treasury changes it, so a reshape becomes a version
+    // bump here instead of a wrong number or a dead cron.
+    const treasury = client.open(Treasury.createFromAddress(addr))
+    const state = await treasury.getTreasuryState()
+    const { totalCoins, totalTokens, previousRate, currentRate, windowDuration } = state
 
-    // get_times — only for the round the snapshot is keyed by (index 0).
-    const tm = (await client.runMethod(addr, 'get_times')).stack
-    const currentRoundSince = tm.readBigNumber() // 0
+    // get_times — only for the round the snapshot is keyed by.
+    const times = await treasury.getTimes()
+    const currentRoundSince = times.currentRoundSince
 
-    // Rate and APY, computed exactly like scripts/showState.ts.
+    // Rate and APY. computeApy is the SDK's, which is what the app, the MCP server and the example
+    // all display, so this dataset cannot drift away from the published figure by arithmetic alone.
     //
-    // The exponent's basis is window_duration, the interval the rate pair ACTUALLY grew over, and
-    // not a round length. Those were the same number until the treasury widened its published
-    // window to span two barrier releases; it is now about two rounds, and wider still across
-    // rounds where nothing was lent. Dividing by one round length instead would roughly SQUARE the
-    // reported APY -- ~17% would print as ~37% -- which is the kind of error a chart makes look
-    // like good news. Rows already in the CSV were written when the two agreed, so they stand.
+    // It annualises over window_duration, the interval the pair ACTUALLY grew over: two settlement
+    // releases, so about two rounds. This script used to divide by a round length from get_times,
+    // which was right while those agreed and is not any more -- it would roughly SQUARE the figure,
+    // printing ~17% as ~37%. Rows already in the CSV were written while the two agreed, so they
+    // stand.
     const rate = Number(totalCoins) / Number(totalTokens)
-    const duration = Number(windowDuration)
-    const compoundingFrequency = duration > 0 ? YEAR / duration : 0
-    const growth = Number(currentRate) / Number(previousRate)
-    const apy = previousRate > 0n && duration > 0 ? Math.pow(growth, compoundingFrequency) - 1 : ''
+    const apy = computeApy(state) ?? ''
 
     const iso = new Date(Date.now()).toISOString()
     const roundSinceStr = currentRoundSince.toString()
