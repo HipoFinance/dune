@@ -18,7 +18,7 @@ publishing under a Hipo-named team with consistent titles and tags.
 > creation via the **Dune API** (a possible future automation) needs a paid plan — out of
 > scope here.
 
-## 2. Set up the rate dataset (needed for `exchange_rate` / `apy` / `tvl`)
+## 2. Set up the uploaded datasets (needed for `exchange_rate` / `apy` / `tvl` / `hpo_*`)
 
 The exchange rate, APY and exact TVL are treasury-getter values that can't be queried from
 Dune's raw tables, so they come from an uploaded dataset fed by [`exporter/`](exporter/).
@@ -27,15 +27,21 @@ Dune's raw tables, so they come from an uploaded dataset fed by [`exporter/`](ex
 2. Seed the dataset once: `cd exporter && npm install && DUNE_API_KEY=… node export-rates.mjs`.
    This appends today's row to [`data/treasury_rate.csv`](data/treasury_rate.csv) and uploads it
    as the public dataset **`dune.hipofinance.dataset_treasury_rate`**.
-3. Automate it: add the repo secret `DUNE_API_KEY` (and optionally `TONCENTER_API_KEY`,
+3. Seed the burn dataset too: `DUNE_API_KEY=… node export-burn.mjs`. This uploads
+   [`data/hpo_burn.csv`](data/hpo_burn.csv) as **`dune.hipofinance.dataset_hpo_burn`**, which
+   backs the `hpo_burned` / `hpo_buyback` panels. Same reasoning as the rate dataset: what
+   reaches the burn contract is not reconstructable from raw tables, because the contract
+   returns its own change and counts only the difference.
+4. Automate both: add the repo secret `DUNE_API_KEY` (and optionally `TONCENTER_API_KEY`,
    `TON_ENDPOINT`) so [`.github/workflows/update-rates.yml`](.github/workflows/update-rates.yml)
-   refreshes it daily. See [`exporter/README.md`](exporter/README.md).
+   refreshes them every 6 hours. See [`exporter/README.md`](exporter/README.md).
 
 ## 3. Create the queries
 
 For each file in [`queries/`](queries/), in this order
 (`hgram_supply`, `deposit_volume`, `exchange_rate`, `apy`, `unstake_volume`, `net_flow`,
-`tvl`, `stakers`, `holders`, `holder_distribution`, `round_activity`):
+`tvl`, `stakers`, `holders`, `holder_distribution`, `round_activity`, `hpo_burned`,
+`hpo_buyback`):
 
 1. **New query** in the `hipofinance` team. Paste the file contents.
 2. The dataset-backed queries (`exchange_rate`, `apy`, `tvl`, `net_flow`, `unstake_volume`)
