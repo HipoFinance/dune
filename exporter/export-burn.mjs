@@ -40,6 +40,28 @@ const UNIT = 1e9
 
 const HEADER = 'ts,burner,total_received,total_deposited,total_swapped,total_burned'
 
+// Unauthenticated toncenter allows one request per second and answers anything faster with a
+// 429. Pacing alone is not enough: this script runs straight after export-rates.mjs in the same
+// workflow, so its FIRST read races that script's last call and there is no in-process state
+// that knows about it. Hence a retry as well, which also covers the endpoint simply being busy.
+const RETRIES = 4
+
+async function readBurnerWithRetry(client, friendly) {
+    let last
+    for (let attempt = 0; attempt < RETRIES; attempt++) {
+        if (!TONCENTER_API_KEY || attempt > 0) {
+            await new Promise((r) => setTimeout(r, attempt === 0 ? 1100 : 2000 * attempt))
+        }
+        try {
+            return await readBurner(client, friendly)
+        } catch (e) {
+            last = e
+            console.warn(`  ${friendly}: attempt ${attempt + 1}/${RETRIES} failed (${e?.response?.status ?? e?.message ?? e})`)
+        }
+    }
+    throw last
+}
+
 async function readBurner(client, friendly) {
     // get_burner_data returns (hgram_wallet, hpo_wallet, total_received, total_deposited,
     // total_swapped, total_burned). The two wallets are skipped rather than parsed: they are
@@ -60,17 +82,9 @@ async function main() {
     const iso = new Date(Date.now()).toISOString()
     const day = iso.slice(0, 10)
 
-    // Toncenter allows one request per second unauthenticated, and answers a second read fired
-    // straight after the first with a 429. With TONCENTER_API_KEY set this is unnecessary and
-    // skipped; without it, it is the difference between a snapshot and a failed workflow step.
-    const pace = async () => {
-        if (!TONCENTER_API_KEY) await new Promise((r) => setTimeout(r, 1100))
-    }
-
     const rows = []
-    for (const [i, burner] of BURNERS.entries()) {
-        if (i > 0) await pace()
-        const d = await readBurner(client, burner)
+    for (const burner of BURNERS) {
+        const d = await readBurnerWithRetry(client, burner)
         rows.push([
             iso,
             burner,

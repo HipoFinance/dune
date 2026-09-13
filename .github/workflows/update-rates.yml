@@ -36,9 +36,12 @@ jobs:
           TON_ENDPOINT: ${{ secrets.TON_ENDPOINT }}
         run: node export-rates.mjs
 
-      # Separate step so a burner-side failure cannot cost us the rate snapshot, which is the
-      # one that must not miss a round.
+      # continue-on-error is what actually protects the rate snapshot. A separate step is not
+      # enough on its own: a failed step fails the job, which would skip the commit below and
+      # throw away the rate row too. The burn counters are cumulative, so a skipped run costs
+      # nothing but a gap in daily granularity; a missed round in the rate dataset is permanent.
       - name: Snapshot HPO buy-and-burn and upload to Dune
+        continue-on-error: true
         working-directory: exporter
         env:
           DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
