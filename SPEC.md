@@ -51,6 +51,9 @@ for humans / cross-checking on explorers.)
 |---|---|---|
 | Treasury (holds all GRAM) | `EQCLyZHP4Xe8fpchQz76O-_RmUhaVc_9BAoGyJrwJrcbz2eZ` | `0:8BC991CFE177BC7E9721433EFA3BEFD199485A55CFFD040A06C89AF026B71BCF` |
 | Parent = hGRAM jetton master | `EQDPdq8xjAhytYqfGSX8KcFWIReCufsB9Wdg0pLlYSO_h76w` | `0:CF76AF318C0872B58A9F1925FC29C156211782B9FB01F56760D292E56123BF87` |
+| HPO jetton master | `EQDQEUr0LPi8m6D6F0Wrvuok7tZbAcr0yn2Y7hK291MMzMjM` | `0:D0114AF42CF8BC9BA0FA1745ABBEEA24EED65B01CAF4CA7D98EE12B6F7530CCC` |
+| Burn contract (2026-09-05, retired) | `EQAGPJMxJ73OLpHUgQhI5YeQe2ZuAuUQ-4f_zfN4rV2Fl6Jp` | `0:063C933127BDCE2E91D4810848E587907B666E02E510FB87FFCDF378AD5D8597` |
+| Burn contract (2026-09-09, current) | `EQDcjZDWvotoVE0X4HSdt2pR3b2sBZ4XikzSVSdPiqdQMLRK` | `0:DC8D90D6BE8B68544D17E0749DB76A51DDBDAC059E178A4CD255274F8AA75030` |
 
 Notes and caveats the generator must handle:
 
@@ -154,11 +157,22 @@ method and error are documented on the panel.
     between treasury and loan contracts; active borrowers per round, staked amount per round.
     *Best-effort* — mark clearly and refine against `showState.ts` participation data.
 
+**HPO buy-and-burn**
+12. `hpo_burned.sql` — **HPO burned** per day and cumulative, from the burn contracts'
+    `total_burned` counter via the burn dataset (see the pipeline section below). *Exact.*
+    HPO is a Notcoin fork, so the burn lowers `total_supply` rather than parking tokens at an
+    unspendable address.
+13. `hpo_buyback.sql` — **GRAM spent buying HPO** per day and cumulative, from the same
+    dataset's `total_received`. *Exact.* Paid by two sources the counter does not separate:
+    the borrower fee the treasury forwards, and the HPO trading bot's realized profit. Note
+    this GRAM does **not** leave the protocol — the burner stakes it and spends the resulting
+    hGRAM — so it is already inside `total_coins` and already counted by `tvl.sql`.
+
 **Optional overlays** (only if cheap): USD TVL via `ton.prices_daily`; a single headline
 "stat" tile block (current TVL, APY, supply, holders) for the top of the dashboard.
 
 The dashboard lays these out top-down: headline stat tiles → Size & rate → Flows → Users →
-Operations. Follow the contract repo's `dataviz` skill for palette/labeling when configuring
+Operations → HPO buy-and-burn. Follow the contract repo's `dataviz` skill for palette/labeling when configuring
 chart types, and label every approximate panel with its method.
 
 ## Exchange rate / APY / TVL: the snapshot pipeline

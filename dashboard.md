@@ -53,6 +53,17 @@ its source query (or a small dedicated `... LIMIT 1` counter query if you prefer
 |---|---|---|---|
 | Round activity | `round_activity.sql` | Bars (`stakes_sent`, `recoveries`) + line (`active_borrowers`) | Best-effort; counts exact, amounts omitted |
 
+## 6. HPO buy-and-burn
+
+| Panel | Query | Chart | Notes |
+|---|---|---|---|
+| HPO burned | `hpo_burned.sql` | Bars (`hpo_burned`) + line (`cumulative_hpo_burned`) | Exact; from the burn contracts' own counters. First day's bar is NULL by design |
+| Buy-back spend | `hpo_buyback.sql` | Bars (`gram_to_burner`) | Exact; GRAM the treasury and the trading bot sent to be spent on HPO. Already inside TVL — do not add to `tvl.sql` |
+
+| Tile | Query | Field (latest) |
+|---|---|---|
+| HPO burned (total) | `hpo_burned.sql` | `cumulative_hpo_burned` |
+
 ## Text widget (top of dashboard)
 
 Add a short markdown widget describing Hipo, linking to https://hipo.finance and the contract

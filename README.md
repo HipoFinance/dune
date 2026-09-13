@@ -23,6 +23,7 @@ published on Dune under the Hipo team.
 | Flows | Deposit volume · unstake volume · net flow |
 | Users | New stakers · cumulative stakers · holders over time · holder distribution |
 | Operations | Validation-round / borrower activity |
+| HPO buy-and-burn | HPO burned over time · GRAM spent buying it back |
 
 ## Anchor addresses
 

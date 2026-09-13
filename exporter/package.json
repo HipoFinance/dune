@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Snapshots the Hipo treasury exchange rate / APY / TVL and uploads them to a Dune dataset.",
+  "description": "Snapshots the Hipo treasury exchange rate / APY / TVL and the HPO buy-and-burn counters, and uploads them to Dune datasets.",
   "scripts": {
-    "start": "node export-rates.mjs"
+    "start": "node export-rates.mjs",
+    "start:burn": "node export-burn.mjs"
   },
   "dependencies": {
     "@ton/core": "^0.63.1",
