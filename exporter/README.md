@@ -65,6 +65,26 @@ the protocol's cumulative total, and dropping it would make total HPO burned fal
 Extra env: `BURNER_ADDRESSES` (comma-separated, defaults to both mainnet contracts),
 `DUNE_BURN_TABLE_NAME` (default `hpo_burn`), `BURN_CSV_PATH`.
 
+### Seeding the history
+
+A snapshot pipeline only knows what it has seen, so `hpo_burn.csv` started on the day it was
+first run and the panels opened with two points. `backfill-burn.mjs` fills the gap back to the
+first burn on 2026-09-05 by replaying the contracts' own logs:
+
+```bash
+cd exporter && node backfill-burn.mjs      # then re-run export-burn.mjs to upload
+```
+
+It rebuilds all four counters from the log stream and **checks them against `get_burner_data`
+before writing anything** — if a replay does not land exactly on what the contract reports, it
+throws instead of seeding numbers nobody verified. `swap` and `burn` are byte-identical logs
+(`query_id`, amount, running total), so they cannot be told apart by shape; they are separated by
+which running total each event continues, and which resulting chain is which is decided by the
+contract's own `total_swapped` / `total_burned` rather than by guessing from magnitudes.
+
+Re-running is safe: rows already in the CSV win, so live snapshots are never overwritten by a
+reconstruction.
+
 ## Automation
 
 [`.github/workflows/update-rates.yml`](../.github/workflows/update-rates.yml) runs both of these **every
