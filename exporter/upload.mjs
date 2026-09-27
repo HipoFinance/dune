@@ -65,7 +65,10 @@ async function creditUsage(apiKey) {
             method: 'POST',
             headers: { 'X-Dune-Api-Key': apiKey, 'Content-Type': 'application/json' },
             // Ask for the last 90 days so the log also shows how earlier periods were funded.
-            body: JSON.stringify({ start_date: new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10) }),
+            body: JSON.stringify({
+                start_date: new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10),
+                end_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+            }),
         })
         if (!res.ok) {
             console.warn(`Dune usage unavailable: ${res.status} ${await res.text()}`)
