@@ -64,13 +64,17 @@ async function creditUsage(apiKey) {
         const res = await fetch('https://api.dune.com/api/v1/usage', {
             method: 'POST',
             headers: { 'X-Dune-Api-Key': apiKey, 'Content-Type': 'application/json' },
-            body: '{}',
+            // Ask for the last 90 days so the log also shows how earlier periods were funded.
+            body: JSON.stringify({ start_date: new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10) }),
         })
         if (!res.ok) {
             console.warn(`Dune usage unavailable: ${res.status} ${await res.text()}`)
             return null
         }
         const periods = (await res.json()).billing_periods ?? []
+        for (const p of periods) {
+            console.info(`  Dune billing period ${p.start_date} to ${p.end_date}: ${p.credits_used} of ${p.credits_included} credits`)
+        }
         const now = Date.now()
         const period = periods.find((p) => Date.parse(p.start_date) <= now && now < Date.parse(p.end_date) + 86400000) ?? periods[0]
         if (!period) {
