@@ -25,6 +25,9 @@ push the numbers to Dune.
    Only when there is a new round, though: uploads cost credits, and the workflow runs every six
    hours against a rate that moves once a round. `data/treasury_rate.uploaded` holds the last
    round uploaded, and a failed upload is retried on the next run (`FORCE_UPLOAD=1` to override).
+   It also waits while the billing period's credits (read from Dune's free usage endpoint) are
+   ahead of an even pace, and a 402 is logged rather than failing the job: no credits are bought,
+   and nothing is lost by waiting, since the next upload sends the whole CSV.
    The burn dataset does the same per day, in `data/hpo_burn.uploaded`.
 
 `total_coins` is the authoritative TVL; `rate`/`apy` match the Hipo app to the decimal.
