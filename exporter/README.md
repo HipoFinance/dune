@@ -22,6 +22,10 @@ push the numbers to Dune.
    [`../data/treasury_rate.csv`](../data/treasury_rate.csv) (the versioned source of truth).
 4. Uploads the **full** CSV to Dune via `POST /api/v1/uploads/csv` (a full-replace endpoint;
    public upload, no Enterprise plan needed). It becomes `dune.hipofinance.dataset_treasury_rate`.
+   Only when there is a new round, though: uploads cost credits, and the workflow runs every six
+   hours against a rate that moves once a round. `data/treasury_rate.uploaded` holds the last
+   round uploaded, and a failed upload is retried on the next run (`FORCE_UPLOAD=1` to override).
+   The burn dataset does the same per day, in `data/hpo_burn.uploaded`.
 
 `total_coins` is the authoritative TVL; `rate`/`apy` match the Hipo app to the decimal.
 

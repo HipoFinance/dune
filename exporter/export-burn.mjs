@@ -18,6 +18,7 @@ import { Address } from '@ton/core'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { uploadIfNew } from './upload.mjs'
 
 // Every burn contract, oldest first. The first served from 2026-09-05 until the second replaced
 // it on 2026-09-09; it had no set_code, so a fix meant redeploying. Both are read every run
@@ -123,26 +124,15 @@ async function main() {
     writeFileSync(CSV_PATH, csv)
     console.info(`Wrote ${body.length} rows to ${CSV_PATH}`)
 
-    if (!DUNE_API_KEY) {
-        console.info('DUNE_API_KEY not set — skipped upload (local CSV updated only).')
-        return
-    }
-
-    const res = await fetch('https://api.dune.com/api/v1/uploads/csv', {
-        method: 'POST',
-        headers: { 'X-Dune-Api-Key': DUNE_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            table_name: DUNE_TABLE_NAME,
-            data: csv,
-            is_private: false,
-            description:
-                'Hipo HPO buy-and-burn: cumulative GRAM received, staked, swapped and HPO burned, per burn contract (from get_burner_data).',
-        }),
+    await uploadIfNew({
+        apiKey: DUNE_API_KEY,
+        table: DUNE_TABLE_NAME,
+        csv,
+        key: day,
+        statePath: CSV_PATH.replace(/\.csv$/, '.uploaded'),
+        description:
+            'Hipo HPO buy-and-burn: cumulative GRAM received, staked, swapped and HPO burned, per burn contract (from get_burner_data).',
     })
-    if (!res.ok) {
-        throw new Error(`Dune upload failed: ${res.status} ${await res.text()}`)
-    }
-    console.info(`Uploaded to Dune dataset "${DUNE_TABLE_NAME}" → query as dune.<team>.dataset_${DUNE_TABLE_NAME}`)
 }
 
 main().catch((e) => {

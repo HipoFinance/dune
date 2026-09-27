@@ -24,6 +24,7 @@ import { Treasury, computeApy } from '@hipo-finance/sdk'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { uploadIfNew } from './upload.mjs'
 
 const TREASURY = process.env.TREASURY_ADDRESS || 'EQCLyZHP4Xe8fpchQz76O-_RmUhaVc_9BAoGyJrwJrcbz2eZ'
 const ENDPOINT = process.env.TON_ENDPOINT || 'https://toncenter.com/api/v2/jsonRPC'
@@ -96,28 +97,14 @@ async function main() {
     writeFileSync(CSV_PATH, csv)
     console.info(`Wrote ${body.length} rows to ${CSV_PATH} (round ${roundSinceStr}: rate=${rate.toFixed(6)}, apy=${apy === '' ? 'n/a' : (apy * 100).toFixed(2) + '%'})`)
 
-    if (!DUNE_API_KEY) {
-        console.info('DUNE_API_KEY not set — skipped upload (local CSV updated only).')
-        return
-    }
-
-    // Upload the full CSV to Dune. The /api/v1/uploads/csv endpoint REPLACES the table, so we
-    // always send the complete history. (The old /v1/table/upload/csv endpoint was removed
-    // 2026-03-01.) Public upload — no Enterprise plan needed.
-    const res = await fetch('https://api.dune.com/api/v1/uploads/csv', {
-        method: 'POST',
-        headers: { 'X-Dune-Api-Key': DUNE_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            table_name: DUNE_TABLE_NAME,
-            data: csv,
-            is_private: false,
-            description: 'Hipo treasury exchange rate / APY / TVL daily snapshots (from get_treasury_state).',
-        }),
+    await uploadIfNew({
+        apiKey: DUNE_API_KEY,
+        table: DUNE_TABLE_NAME,
+        csv,
+        key: roundSinceStr,
+        statePath: CSV_PATH.replace(/\.csv$/, '.uploaded'),
+        description: 'Hipo treasury exchange rate / APY / TVL daily snapshots (from get_treasury_state).',
     })
-    if (!res.ok) {
-        throw new Error(`Dune upload failed: ${res.status} ${await res.text()}`)
-    }
-    console.info(`Uploaded to Dune dataset "${DUNE_TABLE_NAME}" → query as dune.<team>.dataset_${DUNE_TABLE_NAME}`)
 }
 
 main().catch((e) => {

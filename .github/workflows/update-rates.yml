@@ -40,7 +40,11 @@ jobs:
       # enough on its own: a failed step fails the job, which would skip the commit below and
       # throw away the rate row too. The burn counters are cumulative, so a skipped run costs
       # nothing but a gap in daily granularity; a missed round in the rate dataset is permanent.
+      # A failed rate upload must not stop the burn snapshot or, below, the commit: the CSVs are the
+      # record, and on 2026-09-24..27 a Dune credits limit failed every run before the commit step,
+      # so four rounds of rows were never saved.
       - name: Snapshot HPO buy-and-burn and upload to Dune
+        if: ${{ !cancelled() }}
         continue-on-error: true
         working-directory: exporter
         env:
@@ -50,9 +54,10 @@ jobs:
         run: node export-burn.mjs
 
       - name: Commit updated CSVs
+        if: ${{ !cancelled() }}
         run: |
           git config user.name "hipo-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add data/treasury_rate.csv data/hpo_burn.csv
+          git add data/
           git diff --staged --quiet || git commit -m "chore: update treasury rate and HPO burn datasets"
           git push
